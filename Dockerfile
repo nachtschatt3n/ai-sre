@@ -1,6 +1,6 @@
 # AI SRE - Self-Healing Toolbox Container
 # Multi-stage build for security
-FROM alpine:3.20 AS builder
+FROM alpine:3.22 AS builder
 
 LABEL maintainer="AI-SRE Team"
 LABEL description="Lean CLI toolbox container for Kubernetes operations via N8N"
@@ -26,7 +26,7 @@ RUN apk update && apk upgrade && apk add --no-cache \
     build-base linux-headers
 
 # Install kubectl
-ARG KUBECTL_VERSION=v1.31.0
+ARG KUBECTL_VERSION=v1.36.0
 RUN ARCH=$(uname -m) && \
     if [ "$ARCH" = "x86_64" ]; then ARCH="amd64"; fi && \
     if [ "$ARCH" = "aarch64" ]; then ARCH="arm64"; fi && \
@@ -36,14 +36,14 @@ RUN ARCH=$(uname -m) && \
     kubectl version --client
 
 # Install Helm
-ARG HELM_VERSION=v3.15.4
+ARG HELM_VERSION=v3.20.2
 RUN curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 \
     && chmod 700 get_helm.sh \
     && VERIFY_CHECKSUM=false ./get_helm.sh --version ${HELM_VERSION} \
     && rm get_helm.sh
 
 # Install Flux CLI v2
-ARG FLUX_VERSION=2.3.0
+ARG FLUX_VERSION=2.8.6
 RUN curl -s https://fluxcd.io/install.sh | bash
 
 # Install GitHub CLI
@@ -81,7 +81,7 @@ RUN chmod +x /app/scripts/*.sh && \
     chmod 755 /app/src/mcp_server_protocol.py
 
 # Final runtime stage - minimal Alpine image
-FROM alpine:3.20
+FROM alpine:3.22
 
 # Install only runtime dependencies and essential tools
 RUN apk update && apk upgrade && apk add --no-cache \
