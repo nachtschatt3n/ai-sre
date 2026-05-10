@@ -11,36 +11,33 @@ jobs:
   test-matrix:
     name: Test on ${{ matrix.os }} - ${{ matrix.arch }}
     runs-on: ${{ matrix.os }}
-    
+
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
-        arch: [amd64, arm64]
-        exclude:
-          - os: macos-latest
-            arch: arm64  # GitHub doesn't support ARM64 macOS runners yet
-          - os: macos-latest
-            arch: amd64  # Docker not available on macOS runners
-            
+        include:
+          - os: ubuntu-latest
+            arch: amd64
+          - os: ubuntu-24.04-arm
+            arch: arm64
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
+
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
-      
+
     - name: Build Docker image
       run: |
         docker buildx build --platform linux/${{ matrix.arch }} -t ai-sre:test-${{ matrix.arch }} --load .
         
     - name: Test container startup
-      if: matrix.arch == 'amd64'
       run: |
         docker run -d --name ai-sre-test-${{ matrix.arch }} -p 8080:8080 ai-sre:test-${{ matrix.arch }}
         sleep 10
         
     - name: Test MCP Server endpoints
-      if: matrix.arch == 'amd64'
       run: |
         # Test health endpoint
         curl -f http://localhost:8080/health || exit 1
@@ -60,7 +57,6 @@ jobs:
         echo "$response" | grep -q "kubectl_get" || exit 1
         
     - name: Test MCP tools functionality
-      if: matrix.arch == 'amd64'
       run: |
         # Wait a bit more for container to be fully ready
         sleep 5
@@ -94,7 +90,6 @@ jobs:
         echo "$response" | grep -q "success" || echo "Warning: flux_status tool may have issues"
           
     - name: Verify CLI tools
-      if: matrix.arch == 'amd64'
       run: |
         docker exec ai-sre-test-${{ matrix.arch }} kubectl version --client
         docker exec ai-sre-test-${{ matrix.arch }} helm version --client
@@ -102,12 +97,11 @@ jobs:
         docker exec ai-sre-test-${{ matrix.arch }} git --version
         
     - name: Check container stats
-      if: matrix.arch == 'amd64'
       run: |
         docker stats --no-stream ai-sre-test-${{ matrix.arch }}
         
     - name: Cleanup
-      if: always() && matrix.arch == 'amd64'
+      if: always()
       run: |
         docker stop ai-sre-test-${{ matrix.arch }} || true
         docker rm ai-sre-test-${{ matrix.arch }} || true
