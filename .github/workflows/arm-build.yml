@@ -8,22 +8,16 @@ on:
 jobs:
   arm-build:
     name: ARM64 Build Test
-    runs-on: ubuntu-latest
-    
+    runs-on: ubuntu-24.04-arm
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
+
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
-      
-    - name: Create ARM64 builder
-      timeout-minutes: 10
-      run: |
-        docker buildx create --name arm-builder --platform linux/arm64 --use || true
-        docker buildx inspect --bootstrap
-        
-    - name: Build ARM64 image
+
+    - name: Build ARM64 image (native runner)
       timeout-minutes: 30
       run: |
         docker buildx build \
@@ -31,42 +25,23 @@ jobs:
           --tag ai-sre:arm64-test \
           --load \
           .
-          
-    - name: Test ARM64 container
+
+    - name: Run ARM64 container
       run: |
-        # Note: ARM64 containers cannot run on AMD64 hosts
-        # We can only verify the image was built successfully
-        docker images | grep ai-sre
-        echo "✅ ARM64 image built successfully"
-        echo "Note: ARM64 container testing requires ARM64 host (not available in GitHub Actions)"
-        
+        docker run -d --name ai-sre-arm64-test -p 8080:8080 ai-sre:arm64-test
+        sleep 10
+        curl -f http://localhost:8080/health
+        docker exec ai-sre-arm64-test kubectl version --client
+        docker exec ai-sre-arm64-test helm version --client
+        docker exec ai-sre-arm64-test flux version --client
+
     - name: Cleanup
       if: always()
       run: |
-        # No containers to clean up since we don't run ARM64 on AMD64
-        docker buildx rm arm-builder 2>/dev/null || true
+        docker stop ai-sre-arm64-test 2>/dev/null || true
+        docker rm ai-sre-arm64-test 2>/dev/null || true
         
-  multi-platform-build:
-    name: Multi-Platform Build
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-      
-    - name: Build multi-platform image
-      timeout-minutes: 45
-      run: |
-        docker buildx build \
-          --platform linux/amd64,linux/arm64 \
-          --tag ai-sre:multi-platform-test \
-          .
-          
-    - name: Verify multi-platform support
-      run: |
-        echo "Multi-platform build completed successfully"
-        echo "Multi-platform builds don't create local images (manifest list only)"
-        echo "✅ Multi-platform build verification passed"
+  # Note: dropped the redundant cross-arch buildx job. The matrix in
+  # `build-and-push` (ci-cd.yml) already produces a multi-arch manifest
+  # via native runners; emulating both arches under qemu here just
+  # exceeded GitHub Actions' job timeouts.
