@@ -141,13 +141,8 @@ jobs:
     - name: Set platform for build
       id: platform
       run: |
-        if [[ "${{ github.ref }}" =~ ^refs/tags/v ]]; then
-          echo "platforms=linux/amd64,linux/arm64" >> $GITHUB_OUTPUT
-          echo "Building for multiple platforms (release)"
-        else
-          echo "platforms=linux/amd64" >> $GITHUB_OUTPUT
-          echo "Building for AMD64 only (non-release)"
-        fi
+        echo "platforms=linux/amd64" >> $GITHUB_OUTPUT
+        echo "Building for AMD64 only (qemu arm64 builds were exceeding the 6h job timeout)"
         
     - name: Build and push Docker image
       id: build
