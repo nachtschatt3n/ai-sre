@@ -53,12 +53,10 @@ RUN apk add --no-cache github-cli
 RUN curl https://mise.run | sh && \
     mv ~/.local/bin/mise /usr/local/bin/mise
 
-# Install Node.js 22 (maintained LTS) via mise -- node 18 is EOL and its
-# bundled npm dependency tree never receives fixes
-ENV MISE_DATA_DIR=/usr/local/share/mise
-ENV MISE_CACHE_DIR=/usr/local/share/mise/cache
-RUN mise use --global node@22 && \
-    mise install node@22
+# Node.js is NOT built via mise any more: on musl, mise compiles node from
+# source (~1h per arch in CI), and a compiled-in node never receives distro
+# security updates. The runtime stage installs Alpine's nodejs/npm packages
+# instead, which `apk upgrade` keeps current on every rebuild.
 
 # Install Python packages for MCP Server
 RUN apk add --no-cache \
@@ -105,6 +103,8 @@ RUN apk update && apk upgrade && apk add --no-cache \
     findutils \
     netcat-openbsd \
     github-cli \
+    nodejs \
+    npm \
     && rm -rf /var/cache/apk/* /tmp/* /var/tmp/*
 
 # Copy only the essential binaries from builder stage
@@ -112,9 +112,8 @@ COPY --from=builder /usr/local/bin/kubectl /usr/local/bin/
 COPY --from=builder /usr/local/bin/helm /usr/local/bin/
 COPY --from=builder /usr/local/bin/flux /usr/local/bin/
 
-# Copy mise and Node.js from builder stage
+# Copy mise from builder stage (node comes from apk, see above)
 COPY --from=builder /usr/local/bin/mise /usr/local/bin/
-COPY --from=builder /usr/local/share/mise /usr/local/share/mise
 
 # Copy application files from builder stage
 COPY --from=builder /app /app
@@ -140,8 +139,7 @@ ENV AGENT_MODE=executor \
     MCP_SERVER_PORT=8080 \
     PYTHONUNBUFFERED=1 \
     MISE_DATA_DIR=/usr/local/share/mise \
-    MISE_CACHE_DIR=/usr/local/share/mise/cache \
-    PATH="/usr/local/share/mise/installs/node/22/bin:${PATH}"
+    MISE_CACHE_DIR=/usr/local/share/mise/cache
 
 # Entry point
 ENTRYPOINT ["/app/scripts/entrypoint.sh"]
