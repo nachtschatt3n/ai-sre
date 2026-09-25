@@ -4,7 +4,7 @@ FROM alpine:3.22 AS builder
 
 LABEL maintainer="AI-SRE Team"
 LABEL description="Lean CLI toolbox container for Kubernetes operations via N8N"
-LABEL version="2.1.1"
+LABEL version="2.1.5"
 
 # Update package index and install base system packages
 RUN apk update && apk upgrade && apk add --no-cache \
@@ -26,7 +26,7 @@ RUN apk update && apk upgrade && apk add --no-cache \
     build-base linux-headers
 
 # Install kubectl
-ARG KUBECTL_VERSION=v1.36.0
+ARG KUBECTL_VERSION=v1.36.5
 RUN ARCH=$(uname -m) && \
     if [ "$ARCH" = "x86_64" ]; then ARCH="amd64"; fi && \
     if [ "$ARCH" = "aarch64" ]; then ARCH="arm64"; fi && \
@@ -36,14 +36,14 @@ RUN ARCH=$(uname -m) && \
     kubectl version --client
 
 # Install Helm
-ARG HELM_VERSION=v3.20.2
+ARG HELM_VERSION=v3.22.0
 RUN curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 \
     && chmod 700 get_helm.sh \
     && VERIFY_CHECKSUM=false ./get_helm.sh --version ${HELM_VERSION} \
     && rm get_helm.sh
 
 # Install Flux CLI v2
-ARG FLUX_VERSION=2.8.6
+ARG FLUX_VERSION=2.9.5
 RUN curl -s https://fluxcd.io/install.sh | bash
 
 # Install GitHub CLI
@@ -53,11 +53,12 @@ RUN apk add --no-cache github-cli
 RUN curl https://mise.run | sh && \
     mv ~/.local/bin/mise /usr/local/bin/mise
 
-# Install Node.js 18 via mise
+# Install Node.js 22 (maintained LTS) via mise -- node 18 is EOL and its
+# bundled npm dependency tree never receives fixes
 ENV MISE_DATA_DIR=/usr/local/share/mise
 ENV MISE_CACHE_DIR=/usr/local/share/mise/cache
-RUN mise use --global node@18 && \
-    mise install node@18
+RUN mise use --global node@22 && \
+    mise install node@22
 
 # Install Python packages for MCP Server
 RUN apk add --no-cache \
@@ -140,7 +141,7 @@ ENV AGENT_MODE=executor \
     PYTHONUNBUFFERED=1 \
     MISE_DATA_DIR=/usr/local/share/mise \
     MISE_CACHE_DIR=/usr/local/share/mise/cache \
-    PATH="/usr/local/share/mise/installs/node/18/bin:${PATH}"
+    PATH="/usr/local/share/mise/installs/node/22/bin:${PATH}"
 
 # Entry point
 ENTRYPOINT ["/app/scripts/entrypoint.sh"]
