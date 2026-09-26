@@ -121,7 +121,10 @@ jobs:
             $(printf '${{ env.IMAGE }}@sha256:%s ' *)
 
       - name: Trivy scan (informational — does not fail the build)
-        uses: aquasecurity/trivy-action@0.28.0
+        # Pin to a v-prefixed release tag: aquasecurity removed the bare `0.28.0`
+        # tag, so every Monday run built both arches and then failed in
+        # 'Set up job' with "unable to find version" before tagging.
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ env.IMAGE }}:weekly-${{ steps.date.outputs.tag }}
           severity: CRITICAL,HIGH
